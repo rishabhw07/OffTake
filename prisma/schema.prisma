@@ -50,7 +50,7 @@ model User {
   updatedAt     DateTime  @updatedAt
 
   // Relations
-  rfqs          Rfq[]
+  rfqs          RequestForQuote[]
   offtakeBaselines OfftakeBaseline[]
   supplyListings SupplyListing[]
   sentContactRequests ContactRequest[] @relation("SentRequests")
@@ -60,7 +60,7 @@ model User {
   supplierAgreements Agreement[] @relation("SupplierAgreements")
 }
 
-model Rfq {
+model RequestForQuote {
   id                  String    @id @default(cuid())
   @@map("rfqs")
   manufacturerId      String
@@ -181,7 +181,7 @@ model Match {
   
   // Match between demand and supply
   rfqId               String?
-  rfq                 Rfq?      @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  rfq                 RequestForQuote?      @relation(fields: [rfqId], references: [id], onDelete: Cascade)
   offtakeBaselineId   String?
   offtakeBaseline     OfftakeBaseline? @relation(fields: [offtakeBaselineId], references: [id], onDelete: Cascade)
   supplyListingId     String
@@ -246,7 +246,7 @@ model Agreement {
   
   // Agreement type
   rfqId               String?
-  rfq                 Rfq?      @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  rfq                 RequestForQuote?      @relation(fields: [rfqId], references: [id], onDelete: Cascade)
   offtakeBaselineId   String?
   offtakeBaseline     OfftakeBaseline? @relation(fields: [offtakeBaselineId], references: [id], onDelete: Cascade)
   supplyListingId     String
