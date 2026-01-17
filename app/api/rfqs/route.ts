@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     const body = await request.json()
     const validatedData = rfqSchema.parse(body)
 
-    const rfq = await prisma.rfq.create({
+    const rfq = await prisma.rFQ.create({
       data: {
         manufacturerId: session.user.id,
         ...validatedData,
@@ -85,7 +85,7 @@ export async function GET(request: Request) {
       where.manufacturerId = session.user.id
     }
 
-    const rfqs = await prisma.rfq.findMany({
+    const rfqs = await prisma.rFQ.findMany({
       where,
       include: {
         manufacturer: {
@@ -120,7 +120,7 @@ export async function GET(request: Request) {
 }
 
 async function findMatchesForRFQ(rfqId: string) {
-  const rfq = await prisma.rfq.findUnique({
+  const rfq = await prisma.rFQ.findUnique({
     where: { id: rfqId }
   })
 
