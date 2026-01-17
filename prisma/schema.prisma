@@ -1,0 +1,274 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  MANUFACTURER
+  SUPPLIER
+}
+
+enum ListingType {
+  RFQ
+  OFFTAKE_BASELINE
+  SUPPLY_LISTING
+}
+
+enum MatchStatus {
+  PENDING
+  CONTACT_REQUESTED
+  MUTUAL_OPT_IN
+  NEGOTIATING
+  CLOSED
+  REJECTED
+}
+
+enum AgreementStatus {
+  DRAFT
+  NEGOTIATING
+  EXECUTED
+  CANCELLED
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String
+  role          UserRole
+  companyName   String
+  contactName   String
+  phone         String?
+  address       String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  rfqs          RFQ[]
+  offtakeBaselines OfftakeBaseline[]
+  supplyListings SupplyListing[]
+  sentContactRequests ContactRequest[] @relation("SentRequests")
+  receivedContactRequests ContactRequest[] @relation("ReceivedRequests")
+  negotiations Negotiation[]
+  agreements   Agreement[] @relation("ManufacturerAgreements")
+  supplierAgreements Agreement[] @relation("SupplierAgreements")
+}
+
+model RFQ {
+  id                  String    @id @default(cuid())
+  manufacturerId      String
+  manufacturer        User      @relation(fields: [manufacturerId], references: [id], onDelete: Cascade)
+  
+  // Material details
+  materialType        String
+  materialGrade       String
+  technicalSpecs      String // JSON string for complex specs
+  tolerances          String?
+  complianceRequirements String // JSON string
+  
+  // Delivery terms
+  incoterms           String
+  deliveryLocation    String
+  deliverySchedule    String // JSON string for schedule details
+  
+  // Pricing
+  targetPrice         Float?
+  pricingFormula      String? // Formula description or JSON
+  
+  // Volume
+  quantity            Float
+  unit                String // e.g., "kg", "tons", "units"
+  
+  // Status
+  isActive            Boolean   @default(true)
+  isAnonymous         Boolean   @default(true)
+  expiresAt           DateTime?
+  
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  // Relations
+  matches             Match[]
+  agreements          Agreement[]
+}
+
+model OfftakeBaseline {
+  id                  String    @id @default(cuid())
+  manufacturerId      String
+  manufacturer        User      @relation(fields: [manufacturerId], references: [id], onDelete: Cascade)
+  
+  // Material details
+  materialType        String
+  materialGrade       String
+  technicalSpecs      String
+  tolerances          String?
+  complianceRequirements String
+  
+  // Delivery terms
+  incoterms           String
+  deliveryLocation    String
+  deliverySchedule    String // Recurring schedule details
+  
+  // Pricing
+  targetPrice         Float?
+  pricingFormula      String?
+  
+  // Volume
+  quantity            Float
+  unit                String
+  frequency           String // e.g., "monthly", "quarterly", "annually"
+  
+  // Status
+  isActive            Boolean   @default(true)
+  isAnonymous         Boolean   @default(true)
+  startDate           DateTime
+  endDate             DateTime?
+  
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  // Relations
+  matches             Match[]
+  agreements          Agreement[]
+}
+
+model SupplyListing {
+  id                  String    @id @default(cuid())
+  supplierId          String
+  supplier            User      @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  
+  // Material details
+  materialType        String
+  materialGrade       String
+  technicalSpecs      String
+  quality             String // Quality certifications, standards
+  
+  // Available volume
+  availableVolume     Float
+  unit                String
+  volumeOverTime      String // JSON string for volume schedule
+  
+  // Delivery
+  preferredDeliveryModes String // JSON string for delivery options
+  deliveryLocation    String?
+  
+  // Pricing
+  pricingStructure    String // JSON string for pricing details
+  
+  // Status
+  isActive            Boolean   @default(true)
+  isAnonymous         Boolean   @default(true)
+  validFrom           DateTime
+  validUntil          DateTime?
+  
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  // Relations
+  matches             Match[]
+  agreements          Agreement[]
+}
+
+model Match {
+  id                  String    @id @default(cuid())
+  
+  // Match between demand and supply
+  rfqId               String?
+  rfq                 RFQ?      @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  offtakeBaselineId   String?
+  offtakeBaseline     OfftakeBaseline? @relation(fields: [offtakeBaselineId], references: [id], onDelete: Cascade)
+  supplyListingId     String
+  supplyListing       SupplyListing @relation(fields: [supplyListingId], references: [id], onDelete: Cascade)
+  
+  // Match quality score (algorithmic)
+  matchScore          Float     @default(0)
+  matchReasons        String    // JSON string explaining why it's a match
+  
+  // Status
+  status              MatchStatus @default(PENDING)
+  
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  // Relations
+  contactRequests     ContactRequest[]
+  negotiations        Negotiation[]
+  agreements          Agreement[]
+}
+
+model ContactRequest {
+  id                  String    @id @default(cuid())
+  matchId             String
+  match               Match     @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  
+  requestedById       String
+  requestedBy         User      @relation("SentRequests", fields: [requestedById], references: [id])
+  requestedToId       String
+  requestedTo         User      @relation("ReceivedRequests", fields: [requestedToId], references: [id])
+  
+  message             String?
+  isAccepted          Boolean   @default(false)
+  isMutualOptIn       Boolean   @default(false)
+  
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+}
+
+model Negotiation {
+  id                  String    @id @default(cuid())
+  matchId             String
+  match               Match     @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  
+  initiatedById       String
+  initiatedBy         User      @relation(fields: [initiatedById], references: [id])
+  
+  // Negotiation details
+  proposedPrice       Float?
+  proposedTerms       String    // JSON string for terms
+  notes               String?
+  
+  // Status
+  status              String    @default("active") // active, accepted, rejected, closed
+  
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+}
+
+model Agreement {
+  id                  String    @id @default(cuid())
+  
+  // Agreement type
+  rfqId               String?
+  rfq                 RFQ?      @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  offtakeBaselineId   String?
+  offtakeBaseline     OfftakeBaseline? @relation(fields: [offtakeBaselineId], references: [id], onDelete: Cascade)
+  supplyListingId     String
+  supplyListing       SupplyListing @relation(fields: [supplyListingId], references: [id], onDelete: Cascade)
+  matchId             String
+  match               Match     @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  
+  // Parties
+  manufacturerId      String
+  manufacturer        User      @relation("ManufacturerAgreements", fields: [manufacturerId], references: [id])
+  supplierId          String
+  supplier            User      @relation("SupplierAgreements", fields: [supplierId], references: [id])
+  
+  // Agreement details
+  finalPrice          Float
+  finalTerms          String    // JSON string
+  quantity            Float
+  deliverySchedule    String    // JSON string
+  
+  // Status
+  status              AgreementStatus @default(DRAFT)
+  executedAt          DateTime?
+  
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+}
