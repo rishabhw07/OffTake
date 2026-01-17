@@ -62,6 +62,7 @@ model User {
 
 model Rfq {
   id                  String    @id @default(cuid())
+  @@map("rfqs")
   manufacturerId      String
   manufacturer        User      @relation(fields: [manufacturerId], references: [id], onDelete: Cascade)
   

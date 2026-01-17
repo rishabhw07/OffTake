@@ -126,7 +126,7 @@ async function findMatchesForSupplyListing(listingId: string) {
   if (!listing) return
 
   // Find matching RFQs
-  const rfqs = await prisma.rFQ.findMany({
+  const rfqs = await prisma.rfq.findMany({
     where: {
       isActive: true,
       materialType: listing.materialType,
